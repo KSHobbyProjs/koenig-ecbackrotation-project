@@ -1,0 +1,7 @@
+# .gitignore
+.ipynb_checkpoints/
+.venv/
+temp/
+__pycache__/
+*.pyc
+*.pyo

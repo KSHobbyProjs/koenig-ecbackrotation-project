@@ -1,0 +1,6 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{}%
+\contentsline {section}{\numberline {2}Background}{1}{}%
+\contentsline {subsection}{\numberline {2.1}Separation of Center of Mass from RSE}{1}{}%
+\contentsline {subsection}{\numberline {2.2}Resonance Theory}{1}{}%
+\contentsline {subsection}{\numberline {2.3}Complex Scaling and the ABC Theorem}{1}{}%
+\contentsline {section}{\numberline {3}Eigenvector Continuation}{1}{}%
