@@ -1,10 +1,84 @@
 \section{Background}
 
-\subsection{Separation of Center of Mass from RSE}
-% radial schrodinger equation and separation of center of mass coordinate
+\subsection{Separation of center of mass}
+\subsubsection{Deriving the TISE from the TDSE}
+The time evolution operator obeys the time-dependent Schr{\"o}dinger (TDSE):
+\be 
+	i\hbar \;\frac{\partial}{\partial t} \hat{U}(t, t_0) = \hat{H}\hat{U}(t, t_0)\label{eq:tdse1}.
+\ee
+In the cases where the Hamiltonian is time-independent, as is our case, 
+\be
+	\hat{U}(t, t_0) = \exp\left(\frac{-i\hat{H}(t - t_0)}{\hbar}\right) \label{eq:timeevol}.
+\ee
+Acting on an energy eigenket $\ket{E}$ such that $\hat{H}\ket{E} = E\ket{E}$, 
+\bea
+	\ket{E}_t = \hat{U}(t, t_0)\ket{E} = \exp\left(-\frac{i}{\hbar}E(t-t_0)\right)\ket{E}_{t_0}.
+\eea
+Such a state only varies in phase as time progresses. It remains an eigenket of the Hamiltonian with energy $E$ for all time. Using completeness of the energy eigenkets, any ket can be written as $\ket{\Psi} = \sum_{E}\ket{E}\braket{E|\Psi}$, and so the time dependence of any arbitrary state is:
+\bea
+	\ket{\Psi}_t = \sum_E\exp\left(-\frac{i}{\hbar}E(t-t_0)\right)\braket{E|\Psi}_{t_0}\ket{E}.
+\eea
+By applying a ket at $t_0$ on the right of both sides of \cref{eq:tdse1}, we can derive the more conventional form of the Time-dependent Schr{\"o}dinger equation (TDSE):
+\be
+	i\hbar\;\partial_t\ket{\Psi}_t=\hat{H}\ket{\Psi}_t \label{eq:tdse2}.
+\ee
+Now, we restrict \cref{eq:tdse2} to a single energy eigenspace. In that eigenspace, the eigenket evolves as $\ket{E}_t = \phi(t) \ket{E}_{t_0}$, where $\phi(t) =\exp(-iE(t-t_0)/\hbar)$ as discussed earlier. Thus, 
+\begin{align*}
+	i\hbar \partial_t(\phi(t)\ket{E}_{t_0}) &= \hat{H}(\phi(t)\ket{E}_{t_0}) \\
+	i\hbar(-iE/\hbar)\phi(t)\ket{E}_{t_0} &= \phi(t)\hat{H}\ket{E}_{t_0} \\
+	E\phi(t)\ket{E}_{t_0} &= \phi(t) \hat{H}\ket{E}_{t_0} \\
+	E\ket{E}_{t_0} &= \hat{H}\ket{E}_{t_0}.
+\end{align*}
+This approach derives the time-independent Schr{\"o}dinger equation (TISE) from abstract operator algebra, which is more general than the standard approach: starting with the TDSE and using the position basis, the assumption that $H$ doesn't depend on $t$, and separation of variables to arrive at the same equation.
+
+\subsubsection{Separating out the center of mass}
+Consider a two-particle system where the particles have masses $m_1$ and $m_2$ and the particles' positions are $\bm{r}_1$ and $\bm{r}_2$. We can define the center of mass and relative coordinate as
+\bea
+	\bm{R} = \frac{m_1\bm{r}_1 + m_2\bm{r}_2}{m_1+m_2}\quad \bm{r} = \bm{r}_1 - \bm{r}_2,
+\eea
+respectively. If the potential is central, one can then show that the Hamiltonian factorizes and the center of mass motion is independent of the relative motion. The center of mass just contributes an overall free motion and can be neglected (moving to the center of mass frame).
+
+\subsubsection{Separating out angular motion}
+From this, we can then separate out angular motion using the definition of the angular momentum operator. The potential is central, so the Hamiltonian commutes with the angular momentum operator. This means that there are simultaneous eigenkets of both. Angular momentum eigenstates are spherical harmonics and are degenerate. Diagonalizing the radial Hamiltonian in the degenerate eigenspace of angular momentum $l$, we get the reduced radial equation:
+\be
+	-\frac{\hbar^2}{2\mu}\frac{d^2u}{dr^2}+\left(V(r) + \frac{\hbar^2}{2\mu}\frac{l(l+1)}{r^2}\right)=Eu,
+\ee
+where $\mu=(m_1m_2)/(m_1+m_2)$ is the reduced mass and $R(r) = u(r)/r$ is the radial wave function.
+
+% Assume that the Hamiltonian can be written in the form $\hat{H} = \hat{H}_0+\hat{V}$, where Assume we have $n$ particles. Let $\bm{r}_i$ be the position vector for particle $i$. Then, a position eigenstate of the composite system looks like $\ket{\bm{r}_1}\otimes\ket{\bm{r}_2}\otimes\cdots\otimes\ket{\bm{r}_n}\rightarrow \ket{\bm{r}_1,\bm{r}_2,\dots,\bm{r}_n}$. 
 
 \subsection{Resonance Theory}
 % brief introduction into the theory of resonances as analyzed by the TISE
+A resonance in nuclear theory is similar to a resonance in other areas of physics. Fundamentally, a resonance is a state that is self-generating but not self-contained. I.e., a resonance is a preferred state of the system, like a bound state, but it slowly leaks into the continuum. Like a bound state, the resonance needs no asymptotic incoming behavior to exist; the system exhibits the resonant behavior without needing an external crutch. But, unlike a bound state, a resonance is not permanently stable. Of course, in practice, one would need to give the system an initial kick to actually observe the resonance, but the resulting temporary state is independent of the kick's behavior. The kick is just there to give the system enough energy to transition. This is exactly analogous to resonances in other areas of physics. In classical mechanics, a bell or guitar string oscillates at a resonance frequency. It does not need to be driven at this frequency; it prefers to oscillate at it. It's a property of the system, independent of the incoming behavior. However, it can't maintain this oscillation indefinitely; it inevitably decays. Further, the bell or guitar string, practically, needs to be given a kick to slide into its resonance (the low E on a guitar string vibrates at a low E regardless of how you pluck it, asymptotically).
+
+In fact, the math is identical as well. As discussed below, a resonance in nuclear theory is often defined as a pole of the $S$-matrix in a specific part of the complex plane. This defines the "self-generating but not self-sustaining behavior". In classical mechanics, the bell's resonant frequency is a pole of its transfer function with a complex energy. The math is identical. A pole of the $S$ matrix located on the negative real axis corresponds to a bound state: a state that is both self-generating and self-sustaining (a bound state is stable and doesn't leak). If an ideal bell were in a vacuum, its resonant state would collapse to its bound state. But, on Earth, the bell is always coupled to the air surrounding it; the bell is intrinsically open and always leaking energy to the air, so the state decays. In nuclear physics, the resonance is defined as a state that is self-generating but is open in that it leaks probability to the continuum. The analogy is nearly one-to-one.
+
+There are two pictures for a resonance that one may use:
+
+\textbf{$S$-matrix picture}: A resonance is defined as a pole of the $S$-matrix in the second Riemann sheet (identically, a pole of the analytically continued resolvent on the second Riemann sheet).
+
+The $S$ matrix implicitly captures asymptotic behavior. It doesn't encode the interior directly (though of course the interior governs the asymptotics). This statement is directly saying: a resonance is a state that is a pole of the resolvent like a bound state (continuum states are the branch cut), but one that is purely outgoing while not being a bound state. The resonance pole is not itself observable; it's an off-shell singularity that shapes the behavior of the continuum states near the resonance energy. This statement encodes the idea of the \textbf{Wigner time delay}: the continuum states near the resonance energy are delayed relative to free propagation (at energies close to the resonance energy, the state enters the resonance, and leaks back into the continuum, so continuum states with energies near the resonance are delayed compared to what they'd be without an interaction). The closer the pole is to the real axis, the longer this delay, and the sharper the resonance in cross-sections.
+
+\textbf{Gamow picture}: A Gamow state (a resonance), is defined by purely outgoing boundary conditions with an energy that isn't pure negative real (purely outgoing boundary, but not a bound state).
+
+If one looks at the reduced radial Schr{\"o}dinger equation with this requirement in mind (by looking at the general solution for a given angular momentum $l$ and what the asymptotic parts must then obey), one will find that this is only possible if the energy lies in the third or fourth quadrant of the complex plane (as such, we've analytically continued the solution set to the complex plane). The third quadrant solution grows in time and is called the anti-resonance, while the fourth quadrant solution decays in time and is called the resonance. This immediately means that the resulting state isn't normalizable (because of the positive real part of the energy), which is due to the divergent behavior at large $r$, and that the resulting state decays (because of the negative imaginary part of the energy$^+$). Intuitively, this makes sense. The state must diverge because, over time, more of the state leaks out to the continuum. If you forcefully look at this state as if it were time-independent, you're collapsing all the time-dependent "leaking information" into one snapshot representing all time, so the state must diverge at large $r$.
+
+$^+$ It should be noted that a lot of the intuitive arguments made here implicitly assume a narrow resonance, but the concept is more general.
+
+These two pictures are saying the same thing, and are often identical pictures (especially in the cases considered in these notes), but $S$-matrix picture is more general and abstract, while the Gamow picture collapses to a simplified, specific representation. In simple systems, these are identical statements (the $S$ matrix is making a statement about the asymptotic behavior of the state, as is the Gamow condition), but a Gamow state is more difficult to define explicitly in more complicated systems.
+
+Experiments measure the amount of particles hitting a detector for a given energy of incoming particles. The experiment effectively measures the differential cross-sections: the angular distribution of outgoing particles. Resonances show up as peaks near the real part of the resonance energy in cross sections because, at energies around that value, the particle is much more likely to be captured (to form a resonance). Once that resonance leaks out, it most likely is released isotropically, while particles that didn't interact move "straight through" and are released at $\theta=0$. So, the cross section spikes near the resonance because, near those energies, far more particles are released at $\theta\ne0$. It should be noted that cross-sections can't directly measure bound states. If the state is bound, it doesn't leak, so there's no particle that leaves to hit the detector. I.e., bound states occur at negative energy, and so they can't show up in scattering experiments directly at all since you can't scatter at negative energy. One must use another technique, like spectroscopy, to find bound states. Lastly, it should be noted that the theoretical treatment finds the resonant modes of the full Hamiltonian in isolation, and the scattering experiment is then one way to excite and detect those modes. The modes exist outside of the experiment, but it's how we access them. Example:
+$^{239}U^*$ is a highly excited resonance state formed from a neutron and a $^{238}U$ nucleus. The $n+^{238}U$ is the composite system analyzed in isolation, but experiments access this by firing neutrons of different energies at a $^{238}U$ nucleus.
+
+A lot of the complexity in describing resonances is that we're collapsing a time-dependent phenomena into a time-independent framework. The resonance itself is time-independent. It's a static property of the Hamiltonian. But, the realization of this resonance in any given experiment is purely time-dependent: it leaks out "over time". The pole is the state-independent object; the resulting state is what happens when you happen to excite it. We're hiding the time-dependence away, similarly to how one hides high-energy physics in effective theories.
 
 \subsection{Complex Scaling and the ABC Theorem}
 % brief introduction into complex scaling and how resonances are affected
+In complex scaling, one can show that making the substituion $r\rightarrow re^{i\theta}$ can make resonances appear bound. This is analytically continuing the Gamow state to the complex plane and evaluating it on a complex $r$-ray. Because of the $e^{i\theta}$, this can damp the diverging oscillations (for suitable choice of $\theta$) and make the Gamow state $L^2$ normalizable.
+
+The ABC theorem says that: if the potential is dilation-analytic (the analytic continuation of the potential is analytic in a specific $\theta$ wedge), then the complex scaled Hamiltonian is analytic in that wedge, the continuum is rotated to the position of the ray, and resonances become bound states (in that specific $\theta$ wedge) with the same resonance energy as before. This has huge computational advantages because it allows us to find resonances through bound state methods, and is usually easy to implement computationally.
+
+Because the complex scaled Hamiltonian is no longer normalizable, the Hermitian inner product is no longer a feasible definition for the inner product (one can normalize according to any convention one wants, and you can certainly recover the same physics if you continue to use the Hermitian inner product, but you have to be extremely careful to recognize assumptions you'll probably naturally make even though they no longer hold). Mainly, eigenvectors of the Hamiltonian are no longer naturally orthonormal wrt the Hermitian inner product, which makes insertions of identity unfortunate to work with. Defining an inner product as the c-product fixes these issues: left and right eigenvectors become identical again, the dual space structure naturally implies the left-eigenvector structure, and eigenvectors of the Hamiltonian are once again orthonormal).
+
+\subsubsection{Proof that most observables are $\phi$ independent}\label{sssection:obs_phi_indep}
+One can further show that, for any observable $A$ that is dilation-analytic and doesn't blow up pathologically (falls off faster than a specific exponential rise), expectation values like $\langle A_\theta \rangle$ are $\theta$ independent. I.e., the expectation values are regularized observables. I'll put this proof here shortly. The general idea is to show that $\langle A_{\theta+\delta\theta}\rangle = \langle A_{\theta}\rangle$ (where $\theta$ and $\theta+\delta\theta$ are in the good sector) by showing that the integrals end up being equivalent because $A$ is dilation analytic in the wedge, so there is no residue accumulated by integrating over the $\delta \theta$ ray.

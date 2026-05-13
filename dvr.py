@@ -374,7 +374,7 @@ class ECEnsemble:
         extrapolated_densities_err95.append([err95_m, err95_p])
         extrapolated_densities_err68.append([err68_m, err68_p])
 
-      extrapoleted_densities = np.stack(extrapolated_densities, axis=0)
+      extrapolated_densities = np.stack(extrapolated_densities, axis=0)
       extrapolated_densities_err95 = np.stack(extrapolated_densities_err95, axis=1)
       extrapolated_densities_err68 = np.stack(extrapolated_densities_err68, axis=1)
       return extrapolated_densities, extrapolated_densities_err95, extrapolated_densities_err68
