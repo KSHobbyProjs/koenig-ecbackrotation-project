@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/11N5BFE5-6Y-6KT-0w935Zw1mkCI-KJhq
 
 DVR basis defined using sin-DVR. 
-phi_k = sum_j U_{jk} phi_j, where U_{jk} = sqrt(omega_k) phi_j(x_k)
+chi_k = sum_j U_{jk} phi_j, where U_{jk} = sqrt(omega_k) phi_j(x_k)
 phi_j = sqrt(2 / L) sin(pi j x / L), and
 omega_k = L / (n + 1)
 
@@ -21,13 +21,16 @@ from numpy import pi, exp, sqrt, sin
 import scipy.linalg as sl
 import matplotlib.pyplot as plt
 
+import scipy.interpolate as si
+
 class DVR:
   mu, hbar, N = 1/2, 1.0, 2
 
-  def __init__(self, n, L, rotation_angle=0, potential=None):
+  def __init__(self, n, L, rotation_angle=0, potential=None, l=0):
     self.r, self.w = DVR.get_mesh(n, L)
     self.n = n
     self.L = L
+    self.l = l # angular momentum
     self.rotation_angle = rotation_angle
 
     self.potential = potential
@@ -55,6 +58,9 @@ class DVR:
     else:
       r = self.r
     V = np.diag(potential(r))
+
+    l = self.l
+    V += np.diag(self.hbar**2/(2*self.mu) * l*(l+1)/r**2)
     return V
 
   def construct_H0(self, n, L):
@@ -143,6 +149,65 @@ class DVR:
 
       psi = sin_basis @ a
       return psi
+
+  def construct_dvrstate_from_wavefunc(self, rs, wavefunc):
+      """
+      Given a wavefunction psi(r), the DVR coordinate vector,
+      c = {c_k}_k, is determined by c_k = omega_k^{1/2} psi(r_k).
+
+      Find psi(r_k) through interpolation.
+      """
+      # interpolating points r_k and weights omega_k are just DVR mesh
+      rs_interpolate = self.r
+      omegas = self.w
+      
+      psi_interp = si.interp1d(rs, wavefunc, kind='cubic')
+      c = np.sqrt(omegas) * psi_interp(rs_interpolate)
+      return c
+
+  def compute_transition_element(L, in_state, out_state, rotation_angle, operator="E1"):
+      """
+      Computes a transition element of the form (out_state | operator | in_state).
+
+      Arguments
+      ---------
+      L : float
+          System size.
+      in_state : ndarray
+          DVR vector corresponding to the incoming state.
+      out_state : ndarray
+          DVR vector corresponding to the outgoing state.
+      rotation_angle : float
+          Complex scaling rotation angle.
+      operator : str
+           A string corresponding to the operator to compute transitions wrt. 
+           Default : "E1" corresponding to the EM dipole operator r (no angular factor).
+
+      Output
+      ------
+      transition_element : complex float
+          The transition element.
+      """
+      n = len(in_state)
+      if n != len(out_state):
+          raise RuntimeError(f"in_state and out_state can't have different sizes, got len(in_state)={n} and len(out_state)={len(out_state)}")
+      r, w = DVR.get_mesh(n, L)
+
+      operator_list = ["E1"]
+      if operator == "E1":
+          phase = exp(1j*rotation_angle)
+          operator = r * phase
+      else: 
+          raise RuntimeError(f"operator must be one of the following strings: {[op for op in operator_list]}. Got {operator}.")
+
+      # c-normalize
+      in_state = in_state / sqrt(np.sum(in_state**2))
+      out_state = out_state / sqrt(np.sum(out_state**2))
+
+      # compute transition element
+      transition_element = np.sum(in_state * out_state * operator)
+      return transition_element
+      
       
 class ECSystem:
   def __init__(self, n, L, resonance_energy, potential):
@@ -168,6 +233,28 @@ class ECSystem:
         self.training_eigvals.append(val)
         self.training_eigvecs.append(eigstate[:, i])
         self.training_rrs.append(rr)
+
+  def train_from_outside_data(self, rotation_angles, states):
+      """
+      Method that imports training eigvals from outside data.
+
+      Input
+      -----
+      rotation_angles : array-like
+          List of rotation_angles corresponding to each state in `states`.
+      states : ndarray
+          Array of states. Shape (n_states, self.n)
+      """
+      for i, phi in enumerate (rotation_angles):
+          self.system.reset_rotation_angle(phi)
+          self.training_eigvecs.append(states[i])
+
+          rr = self.system.compute_r2(states[i], rotate_rr=True, regulator=False)
+          self.training_rrs.append(rr)
+
+          # currently not populating energies 
+          # training_eigvals and training_rrs are just for bookkeeping
+          self.training_eigvals = []
 
   def construct_basis(self, verbose=False, augment=None):
     # constructing EC basis with c-product

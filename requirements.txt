@@ -62,6 +62,7 @@ notebook==7.5.4
 notebook_shim==0.2.4
 numpy==2.4.3
 packaging==26.0
+pandas==3.0.3
 pandocfilters==1.5.1
 parso==0.8.6
 pexpect==4.9.0

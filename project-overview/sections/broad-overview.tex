@@ -1,16 +1,20 @@
 \section{Density, Radius, and Regularization Methods}
 \subsection{Radial Density}
-Radial density defined as $\rho(r) = \langle \Psi(r')| \delta(r - r') | \Psi(r')\rangle$. Let $\hat{\rho}(r) = \delta(r-r')$. In our case the density comes out to be $\rho(r)=\Gamma u(r)^2$. In more complicated systems, the result is more complicated. 
+Radial density defined as $\rho(r) = \langle \Psi(r')| \delta(r - r') | \Psi(r')\rangle$, assuming the state is properly normalized. Let $\hat{\rho}(r) = \delta(r-r')$. In our case the density comes out to be $\rho(r)= u(r)^2$. In more complicated systems, the result is more complicated.
 
 \subsubsection{Complex Scaling the Density Operator}
-The $\delta(r - r')$ is not something that can be complex-rotated in a traditional sense. It's a distribution, and it definitely doesn't behave in the well-defined way that most observables do (the conditions outlined in \cref{sssection:obs_phi_indep}. As such, there's not really a well-defined way to define the rotated version of $\delta(r - r')$. Instead, we can define an operator $\rho_\theta(r) = (\psi_\theta|\delta(r-r')|\psi_\theta)$. I.e., we don't attempt to rotate the Dirac delta. This expression is of course $\theta$-dependent, and so the goal would be to compute it at $\theta=0$. As such, we need to involve back-rotation. 
+The $\delta(r - r')$ is not something that can be complex-rotated in a traditional sense. It's a distribution, and it definitely doesn't behave in the well-defined way that most observables do (the conditions that allow $(\psi_\theta | O_\theta | \psi_\theta)$ to be constant in $\theta$. As such, there's not really a well-defined way to define the rotated version of $\delta(r - r')$. Instead, we can define an operator $\rho_\theta(r) = (\psi_\theta|\delta(r-r')|\psi_\theta)/(\psi_\theta|\psi_\theta)$. I.e., we don't attempt to rotate the Dirac delta. This expression is of course $\theta$-dependent, and so the goal would be to compute it at $\theta=0$. As such, we need to involve back-rotation. 
 
-In our case, $\rho_\theta(r) = (\psi_\theta|\delta(r-r')|\psi_\theta) =\Gamma e^{i\theta}u_\theta(r)^2$. This varies with $\theta$, but the interior stays nearly constant. The $e^{i\theta}$ factor comes from the $e^{3i\theta/2}$ factor in the 3D complex scaling operation $\Psi_\theta(r) = U_\theta\Psi(r) = e^{i3\theta/2}\Psi(re^{i\theta})$.
+In our case, 
+$$
+\rho_\theta(r) = \frac{(\psi_\theta|\delta(r-r')|\psi_\theta)}{(\psi_\theta|\psi_\theta)} = \frac{\Gamma e^{i\theta}u_\theta(r)^2}{ \Gamma e^{i\theta}\int\;dr\; u_\theta(r)^2} = u_\theta(r)^2,
+$$
+assuming the state is properly c-normalized. This varies with $\theta$, but the interior stays nearly constant. The $e^{i\theta}$ factor comes from the $e^{3i\theta/2}$ factor in the 3D complex scaling operation $\Psi_\theta(r) = U_\theta\Psi(r) = e^{i3\theta/2}\Psi(re^{i\theta})$.
 \subsubsection{Finding the density through backrotation}
-The back-rotated density is just $\rho^{\text{back}}(r) = \Gamma u_0(r)^2 =  \Gamma u_\theta(re^{-i\theta})^2$ because the back-rotated wavefunction is just the original Gamow state. Casting this with respect to the psuedo-rotated density:
+The back-rotated density is just $\rho^{\text{back}}(r) = u_0(r)^2 =  u_\theta(re^{-i\theta})^2$ because the back-rotated wavefunction is just the original Gamow state. Casting this with respect to the psuedo-rotated density:
 
 $$
-\rho_{\theta, BR}(r) = e^{-i\theta} \rho_\theta(re^{-i\theta}),
+\rho_{\theta, BR}(r) = \rho_\theta(re^{-i\theta}),
 $$
 
 One can alternatively show this with a similar integral argument that justified $\rho_\theta$ by back-rotating the resonance wavefunction: $\Psi_{\theta,BR}(r) = e^{-i3\theta/2}\frac{u_\theta(e^{-i\theta}r)}{e^{-i\theta}r}$ to recover the Gamow state, then computing the density with the standard delta function.
