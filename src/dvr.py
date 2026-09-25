@@ -30,12 +30,14 @@ logger = logging.getLogger(__name__)
 class DVRCore:
     def __init__(self, n: int, L: float):
         self.r, self.w = DVRCore.get_mesh(n, L)
-        self.n = n
-        self.L = L
+        self.n = int(n)
+        self.L = float(L)
         
         self.x_plot = np.linspace(0, L, int(L*10))
 
-    # ------------------------------ CORE DVR SETUP ------------------------------
+    # =======================================================================================================
+    #                                           CORE DVR SETUP 
+    # ========================================================================================================
     @staticmethod
     def get_mesh(n: int, L: float) -> tuple[np.ndarray, float]:
         """ computes the DVR quadrature mesh (positions, weights) """
@@ -45,7 +47,9 @@ class DVRCore:
         w = L / (n + 1)
         return r, w
 
-    # --------------------------------------------- WAVEFUNCTION MANIPULATION -------------------------------
+    # ===================================================================================================
+    #                                         WAVEFUNCTION MANIPULATION 
+    # ===================================================================================================
     def DVR_to_position_space(self, dvr_state: np.ndarray, x_plot: np.ndarray | None=None) -> np.ndarray:
         """
         Construct the position-space wavefunction from the DVR state
@@ -65,8 +69,20 @@ class DVRCore:
         psi: np.ndarray
           Position space wavefunction. Shape (len(x_plot)).
         """
+        dvr_state = np.asarray(dvr_state)
+
+        if dvr_state.ndim != 1:
+            raise ValueError(f"DVR_to_position_space expects a single 1D DVR state, got {dvr_state.shape}. "
+                   f"Did you forget to index a column, e.g. eigvec[:, 0]?"
+                        )
+        
         if x_plot is None:
-          x_plot = np.copy(self.x_plot)
+            x_plot = np.copy(self.x_plot)
+        else:
+            x_plot = np.asarray(x_plot)
+            if x_plot.ndim != 1:
+                raise ValueError(f"DVR_to_position_space expects a single 1D array for x_plot, got {x_plot.shape}.")
+        
         
         # psi = sum_k c_k psi_k
         # psi = sum_j (sum_k U_jk c_k) phi_j
@@ -88,7 +104,7 @@ class DVRCore:
     
     def position_space_to_DVR(self, rs: np.ndarray, wavefunc: np.ndarray):
         """
-        Given a wavefunction psi(r), the DVR coordinate vector,
+        Given a wavefunction psi(r), the DVR coordinate vector, 
         c = {c_k}_k, is determined by c_k = omega_k^{1/2} psi(r_k).
         
         Find psi(r_k) through interpolation.
@@ -105,6 +121,14 @@ class DVRCore:
         c: np.ndarray
           c-normalized DVR state corresponding to wavefunc. Shape (num_dvr).
         """
+        rs = np.asarray(rs)
+        wavefunc = np.asarray(wavefunc)
+        
+        if wavefunc != 1:
+            raise ValueError(f"position_space_to_DVR expects a single 1D wavefunction state, got {wavefunc.shape}.")
+        if rs.ndim != 1:
+            raise ValueError(f"position_space_to_DVR expects a single 1D array for rs, got {rs.shape}.")
+        
         # interpolating points r_k and weights omega_k are just DVR mesh
         rs_interpolate = self.r
         omegas = self.w
@@ -113,7 +137,9 @@ class DVRCore:
         c = sqrt(omegas) * psi_interp(rs_interpolate)
         return DVRCore.cnormalize(c)
 
-    # -------------------------------------- UTILITY METHODS -------------------------------------    
+    # ================================================================================================================
+    #                                                 UTILITY METHODS
+    # ==================================================================================================================
     @staticmethod
     def phase_align(state_i: np.ndarray, state_ii: np.ndarray) -> np.ndarray:
         """
@@ -126,6 +152,14 @@ class DVRCore:
         
         Assumes state_i and state_ii are c-normalized.
         """
+        state_i = np.asarray(state_i)
+        state_ii = np.asarray(state_ii)
+
+        if state_i.ndim != 1 or state_ii.ndim != 1:
+            raise ValueError(f"phase_align expects state_i and state_ii to be single 1D DVR states, got {state_i.shape} "
+                             f"and {state_ii.shape}."
+                            )
+        
         # compute c-product projection
         cprojection = np.sum(state_ii*state_i)
         phase = cprojection / np.abs(cprojection)
@@ -134,14 +168,16 @@ class DVRCore:
         return state_ii * np.conjugate(phase)
     
     @staticmethod
-    def cnormalize(state: np.ndarray) -> np.ndarray:
+    def cnormalize(state: np.ndarray, axis: int=0) -> np.ndarray:
         """
-        c-normalizes a DVR state or a set of DVR states.
+        c-normalizes a DVR state or a set of DVR states along some axis.
         
         Parameters
         ----------
         states: np.ndarray
           DVR states. Shape (num_dvr,) or (num_dvr, num_states).
+        axis: int
+            Axis to c-normalize along. Default is 0.
         
         Returns
         -------
@@ -154,8 +190,9 @@ class DVRCore:
         the function returns an array of shape (num_dvr, num_states),
         where each column in states has been normalized.
         """
+        state = np.asarray(state)
         
-        norm = sqrt(np.sum(state**2, axis=0))
+        norm = sqrt(np.sum(state**2, axis=axis))
         if np.any(np.abs(norm) < 1e-14):
           logger.WARNING("Cannot c-normalize a state with near-zero c-norm.")
         
@@ -167,7 +204,7 @@ class DVR(DVRCore):
   def __init__(self,
                n: int,
                L: float,
-               rotation_angle: float=0.0,
+               rotation_angle: complex=0.0,
                potential: Callable[[complex], complex] | None=None,
                l: int=0
             ):
@@ -183,31 +220,40 @@ class DVR(DVRCore):
         Number of DVR points.
     L : float
         System length.
-    rotation_angle: float
+    rotation_angle: complex
         Complex-scaling rotation angle. Default is 0.0.
     potential: Callable[[float], float]
         The radial potential. Default is none.
     l: int
         Angular momentum. Default is 0.
+
+    Note:
+        Normally, the rotation angle is completely real. In the ABC theorem papers, the focus
+        of the theorem was on real values of rotation angle. However, the theorem holds for complex
+        theta as well. If (phi_min, phi_max) are the real components of theta for which the ABC theorem
+        holds, then it holds for theta = (phi_min, phi_max) + 1j*(-infty, infty). Of course, due to finite
+        volume effects, it will probably only hold in a subset of (-infty, infty).
     """
     super().__init__(n, L)
-    self.l = l
-    self.rotation_angle = rotation_angle
+    self.l = int(l)
+    self.rotation_angle = complex(rotation_angle)
     self.potential = potential
 
     # construct Hamiltonian
-    self.H0 = self.construct_H0(n, L)
+    self.H0 = self.construct_H0(self.n, self.L)
     self.V = self.calculate_potential(potential)
     self.H = self.H0 + self.V
 
-  # ------------------------------ CORE DVR SETUP ------------------------------
+  # =========================================================================================================
+  #                                      HAMILTONIAN CONSTRUCTION
+  # ==========================================================================================================
   def calculate_potential(self, potential: Callable[[complex], complex] | None) -> np.ndarray:
     """
     Computes the matrix form of the complex-scaled potential in the DVR basis (diagonal).
     Includes the centrifugal term.
     """
     
-    if self.rotation_angle != 0:
+    if not np.isclose(self.rotation_angle, complex(0.0)):
       phase = exp(self.rotation_angle * 1j)
       r = self.r * phase
     else:
@@ -241,22 +287,24 @@ class DVR(DVRCore):
     coeff = self.hbar**2/(2*self.mu) * pi**2/(2*self.L**2)
     T *= coeff
 
-    if self.rotation_angle != 0:
+    if not np.isclose(self.rotation_angle, complex(0.0)):
       phase = exp(-self.rotation_angle * 2j)
       T *= phase
 
     return T
 
-  def reset_rotation_angle(self, rotation_angle: float):
+  def reset_rotation_angle(self, rotation_angle: complex):
     """
     Re-computes H0, V, and H with a new rotation angle and refreshes local vars.
     """
-    self.rotation_angle = rotation_angle
+    self.rotation_angle = complex(rotation_angle)
     self.H0 = self.construct_H0(self.n, self.L)
     self.V = self.calculate_potential(self.potential)
     self.H = self.H0 + self.V
 
-  # ----------------------------- EIGENPAIR COMPUTATIONS -------------------------------------
+  # =======================================================================================================
+  #                                    EIGENPAIR COMPUTATIONS
+  # =========================================================================================================
   def eig(self) -> tuple[np.ndarray, np.ndarray]:
     """
     Computes the ordered eigenpairs for the current Hamiltonian `self.H`.
@@ -323,13 +371,15 @@ class DVR(DVRCore):
         Eigenvectors ordered according to eigval. Shape (n_dvr, k).
     """
     eigvals, eigstates = self.eig()
-    idx = np.argsort(np.abs(eigvals - resonance))[:k]
+    idx = np.argsort(np.abs(eigvals - complex(resonance)))[:k]
     eigval = eigvals[idx]
     eigstate = DVR.cnormalize(eigstates[:, idx])
     return eigval, eigstate
 
-  # ---------------------------- OBSERVABLE COMPUTATIONS ---------------------------------------
-  def compute_rr(self, dvr_state: np.ndarray, rotate_rr: bool=False, regulator: bool=False):
+  # ========================================================================================================
+  #                                         OBSERVABLE COMPUTATIONS
+  # =========================================================================================================
+  def compute_rr(self, dvr_state: np.ndarray, rotate_rr: bool=True, regulator: bool=False):
     """
     Computes 1/4 * (r^2) (1/4 factor to account for CM).
 
@@ -351,6 +401,10 @@ class DVR(DVRCore):
     expect_rr: complex
         The CM-normalized c-product expectation value of r^2.
     """
+    if dvr_state.ndim != 1:
+      raise ValueError(f"compute_rr expects a single 1D DVR state, got {dvr_state.shape}. "
+                   f"Did you forget to index a column, e.g. eigvec[:, 0]?"
+                  )
     # radius is defined as 1/4<r^2> (due to CM)
     # not factoring in the overall $\int d\Omega (Y^0_0)^2$ factor.
     rs = self.r
@@ -368,14 +422,20 @@ class DVR(DVRCore):
     Computes the density of a DVR state on x_plot, if given.
     Assumes the dvr_state is c-normalized.
     """
+    if dvr_state.ndim != 1:
+      raise ValueError(f"compute_rr expects a single 1D DVR state, got {dvr_state.shape}. "
+                   f"Did you forget to index a column, e.g. eigvec[:, 0]?"
+                  )
     if x_plot is None:
         x_plot = np.copy(self.x_plot)
+    elif x_plot.ndim != 1:
+      raise ValueError(f"compute_rr expects a 1D array for x_plot, got {x_plot.shape}.")        
 
     wavefunc = self.DVR_to_position_space(dvr_state, x_plot)
     return wavefunc**2
       
   @classmethod
-  def compute_transition_mat_element(cls, L, in_state, out_state, rotation_angle, operator="E1"):
+  def compute_transition_mat_element(cls, L, in_state: np.ndarray, out_state: np.ndarray, rotation_angle: complex, operator="E1"):
       """
       Computes a transition element of the form (out_state | operator | in_state).
 
@@ -400,25 +460,50 @@ class DVR(DVRCore):
       transition_element : complex float
           The transition element.
       """
+      rotation_angle = complex(rotation_angle)
+      if in_state.ndim != 1 or out_state.ndim != 1:
+          raise ValueError(f"compute_transition_mat_elements expects in_state and out_state to be single 1D DVR states, "
+                           f"got {in_state.shape} and {out_state.shape}."
+                        )
+                           
       n = len(in_state)
       if n != len(out_state):
-          raise RuntimeError(f"in_state and out_state can't have different sizes, got len(in_state)={n} and len(out_state)={len(out_state)}")
+          raise ValueError(f"in_state and out_state can't have different sizes, got len(in_state)={n} and len(out_state)={len(out_state)}")
       r, w = cls.get_mesh(n, L)
 
       operator_func = getattr(cls, f"_{operator.lower()}", None)
       if operator_func is None:
-          raise RuntimeError(f"operator must be a string in self._operator_funcs. Got {operator}.")
+          raise KeyError(f"operator must be a string in self._operator_funcs. Got {operator}.")
 
       operator_vals = operator_func(rotation_angle, r, w)
 
       # compute transition element
       transition_element = np.sum(in_state * out_state * operator_vals)
       return transition_element
-
-  # ------------------------------------------------ STATISTICS -------------------------------------
-  # most of these stats measure how a complex-scaled wavefunction varies as the rotation angle varies
+  # ----------------------------------------------------------------------------------------------------------------------------------
+  # Transition matrix element operators
+  # ----------------------------------------------------------------------------------------------------------------------------------
   @staticmethod
-  def c_overlap(states: list[np.ndarray], phis: np.ndarray) -> np.ndarray:
+  def _e1(rotation_angle: complex, r: np.ndarray, w=None):
+      """
+      Computes the values of the E1 operator at r values
+      with rotation angle. w is not used. placed here for
+      internal consistency.
+      """
+      rotation_angle= complex(rotation_angle)
+      r = np.asarray(r)
+      if r.ndim != 1:
+          print(f"_e1 expects r to be a 1D array, got {r.shape}")
+      phase = exp(1j*rotation_angle)
+      operator = r * phase
+      return operator
+  # ===================================================================================================================================
+  #                                               WAVEFUNCTION STATISTICS
+  # ===================================================================================================================================
+  # most of these stats measure how a complex-scaled wavefunction varies as the rotation angle varies.
+  # note: many of these functions assume that the rotation angle is completely real as it varies.
+  @staticmethod
+  def c_overlap(states: list[np.ndarray]) -> np.ndarray:
       """ 
       Compute c-product overlap function defined by S(phi) = |1-|(psi_{phi+1} | psi_phi )|^2|.
       
@@ -429,11 +514,8 @@ class DVR(DVRCore):
       np.ndarray
           Value of c-product overlap between states at each phi. Shape (len(phis)-1,).
       """
-      if len(states) != len(phis):
-          raise RuntimeError(f"states and phis must have same length. got {len(states)} vs {len(phis)}")
       overlap = []
-      for i in range(len(phis)-1):
-
+      for i in range(len(states)-1):
           # compute c-product projection
           cprojection = np.sum(states[i]*states[i+1])
           # compute overlap via |1 - |projection|^|
@@ -441,7 +523,7 @@ class DVR(DVRCore):
       return np.array(overlap)
 
   @staticmethod
-  def h_overlap(states: list[np.ndarray], phis: np.ndarray) -> np.ndarray:
+  def h_overlap(states: list[np.ndarray]) -> np.ndarray:
       """ 
       Compute h-product overlap function defined by S(phi) = 1-|<psi_{phi+1} | psi_phi >|^2.
 
@@ -450,11 +532,8 @@ class DVR(DVRCore):
       np.ndarray
           Value of Hermitian overlap between states at each phi. Shape (len(phis)-1,).
       """
-      if len(states) != len(phis):
-          raise RuntimeError(f"states and phis must have same length. got {len(states)} vs {len(phis)}")
-          
       overlap = []
-      for i in range(len(phis)-1):
+      for i in range(len(states)-1):
 
           # h-normalize
           statei, stateii = states[i], states[i+1]
@@ -550,15 +629,3 @@ class DVR(DVRCore):
       phi_path_length = self.phi_speed(phis, states, x_plot)
     
       return np.sum(dphi * phi_path_length)
-
-  # -------------------------------- TRANSITION MATRIX ELEMENT OPERATORS -------------------------------
-  @staticmethod
-  def _e1(rotation_angle: float, r: np.ndarray, w=None):
-      """
-      Computes the values of the E1 operator at r values
-      with rotation angle. w is not used. placed here for
-      internal consistency.
-      """
-      phase = exp(1j*rotation_angle)
-      operator = r * phase
-      return operator

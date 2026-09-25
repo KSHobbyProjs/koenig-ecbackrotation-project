@@ -1,0 +1,20 @@
+\section{Complex-scaling Eigenvector Continuation}
+Complex-scaling eigenvector continuation (CSEC).
+\subsection{Complex scaling}
+A resonance is defined as a pole of the $S$ matrix (equivalently, a zero of the Jost function) at a complex energy on the second Riemann sheet; i.e. $p=p_r -i\gamma$ ($k,\gamma > 0)$. At any zero of the Jost function $p_0$, $\phi_{p_0}(r) \propto f^+_{p_0}(r)$, where $\phi_{p_0}(r)$ is the regular solution of the radial equation and $f^+_{p_0}(r)$ is the outgoing Jost function, defined by a solution of the radial equation with boundary conditions $f^+_{p_0}(r) \xrightarrow[r\to\infty]{} h^+(p_0r)$ (where $h^+(r)\sim e^{ir}$ is the outgoing Ricatti-Hankel function). Because $\gamma >0$, $\phi_{p}(r)\propto h^+(pr)\sim e^{ip_rr}e^{\gamma r}$ $(r\to\infty)$ diverges, and is not $L^2$ under the Hilbert space norm.
+
+Complex scaling is defined by the unitary operation $U_\theta$, defined such that
+$$
+    \bra{\mathbf{r}}U_\theta\ket{\Psi}=e^{id/2}\braket{\mathbf{r}e^{i\theta}|\Psi}\sim U_\theta\Psi(\mathbf{r})=e^{id/2}\Psi(e^{i\theta}\mathbf{r}),
+$$
+where $d$ is the dimension of the Hilbert space, $\ket{\Psi}$ is an eigenfunction of the radial equation (in the rigged Hilbert space sense), and generally $\theta\in\mathbb{R}$. Under this operation,
+$$
+    \phi_{p}(r)\rightarrow U_\theta\phi_p(r)=e^{i\theta/2}\phi_p(re^{i\theta})\xrightarrow[r\to\infty]{}e^{i\theta/2}e^{ir(p_r\cos\theta+\gamma\sin\theta)}e^{-r(p_r\sin\theta-\gamma\cos\theta)}.
+$$
+The divergence is tamed as long as $p_r\sin\theta > \gamma \cos\theta\rightarrow \theta>\arg(k)$ or $\theta > \arg(E) / 2$.
+\theorem{Aguilar-Balslev-Combes (ABC)}{
+Let $H=H_0 + V, \quad H=-\frac{\hbar^2}{2m}\Delta$ on $L^2(\mathbb{R}^d)$ and suppose $V$ is sufficiently well behaved under analytic dilation (\textbf{TODO: TIGHTEN THIS UP; SUFFICIENTLY WELL-BEHAVED HOW?})
+
+}
+\subsection{Eigenvector continuation}
+\subsection{Continuation to complex rotation angle}

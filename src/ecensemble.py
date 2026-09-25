@@ -82,9 +82,15 @@ class ECEnsemble:
 
   # ------------------------------------ Training ------------------------------------------------------
   def train(self, phi_range, points, k=1, n_workers=None):
+    phi_range = np.asarray(phi_range)
+    points = int(points)
+    if phi_range.ndim != 1 or len(phi_range) != 2:
+        raise ValueError(f"train expects to receive phi_range as a 1D list of the form [min, max], got shape {phi_range.shape}.")
+        
     # get the log level set at the parent notebook so we can trickle it down to the workers
     current_level = logging.getLogger().getEffectiveLevel()
     logger.info(f"Training {self.n_ecsystems} EC systems.") 
+      
     # generate independent seeds for each process
     seeds = np.random.SeedSequence().spawn(self.n_ecsystems)
 
@@ -101,6 +107,7 @@ class ECEnsemble:
   def construct_bases(self, augment=None, eps: float=1.0e-8, n_workers=None):
     current_level = logging.getLogger().getEffectiveLevel()
     logger.info(f"Constructing bases for {self.n_ecsystems} EC systems.")
+      
     tasks = [(i, model, augment, eps) for i, model in enumerate(self.models)]
     with ProcessPoolExecutor(max_workers=n_workers, initializer=_init_worker, initargs=(current_level,)) as ex:
         self.models = list(ex.map(_construct_basis_worker, tasks))
@@ -122,8 +129,10 @@ class ECEnsemble:
     predicted_DVR_states: np.ndarray
         The predicted DVR state of the resonance for each model. Shape (num_dvr_points, n_ecsystems). 
     """
+    phi_predict = float(phi_predict)
     current_level = logging.getLogger().getEffectiveLevel()
     logger.info(f"Predicting DVR states for {self.n_ecsystems} EC systems.")
+      
     tasks = [(i, model, phi_predict) for i, model in enumerate(self.models)]
     with ProcessPoolExecutor(max_workers=n_workers, initializer=_init_worker, initargs=(current_level,)) as ex:
         results = list(ex.map(_predict_DVR_states_worker, tasks))
@@ -134,25 +143,29 @@ class ECEnsemble:
   # ----------------------------------- PREDICTION CONVENIENCE CLASSES ---------------------------------
   def predict_energies_rrs(self, phi_predict: float, rotate_rr: bool=True, n_workers=None):
     """ Predict energies and rrs at phi_predict for all EC systems. """
+    phi_predict = float(phi_predict)
     current_level = logging.getLogger().getEffectiveLevel()
     logger.info(f"Predicting energies and r^2 for {self.n_ecsystems} EC systems.")
+      
     energies, states = self.predict_DVR_states_at(phi_predict, n_workers)
-    assert states.shape[1]==self.n_ecsystems, f"ERROR"
     rrs = np.array([self.system.compute_rr(state, rotate_rr=rotate_rr) for state in states.T])
     return energies, rrs
 
   def predict_densities_at(self, phi_predict: float, x_plot: np.ndarray | None=None, n_workers=None):
       """ Predict density at phi_predict for all EC systems. Shape (n_ecsystems, len(x_plot)). """
+      phi_predict=float(phi_predict)
       current_level = logging.getLogger().getEffectiveLevel()
       logger.info(f"Predicting densities for {self.n_ecsystems} EC systems.")
+      
       _, states = self.predict_DVR_states_at(phi_predict, n_workers=n_workers)
       densities = np.array([self.system.compute_density(state, x_plot) for state in states.T])
       return densities
       
   def predict_energies_rrs_stats(self, phi_predict: float, rotate_rr: bool=True, n_workers=None):
     """ Gets energy stats and rrs stats at `phi_predict`. See `compute_stats` for output shapes. """
-    energies, rrs = self.predict_energies_rrs(phi_predict, rotate_rr, n_workers=n_workers)
+    phi_predict=float(phi_predict)
       
+    energies, rrs = self.predict_energies_rrs(phi_predict, rotate_rr, n_workers=n_workers) 
     energies_stats = ECEnsemble.compute_stats(energies)
     rrs_stats = ECEnsemble.compute_stats(rrs)
     return energies_stats, rrs_stats
@@ -164,6 +177,10 @@ class ECEnsemble:
       Computes energy residual stats and rrs residual stats at `phi_predict`. 
       See `compute_resid_stats` for output shapes. 
       """
+      reference_energy = complex(reference_energy)
+      reference_rr = complex(reference_rr)
+      phi_predict=float(phi_predict)
+      
       energies, rrs = self.predict_energies_rrs(phi_predict, rotate_rr, n_workers=n_workers)
       energies_resid_stats = ECEnsemble.compute_resid_stats(reference_energy, energies)
       rrs_resid_stats = ECEnsemble.compute_resid_stats(reference_rr, rrs)
@@ -171,6 +188,11 @@ class ECEnsemble:
 
   def predict_density_stats(self, phi_predict: float, x_plot: np.ndarray | None=None, n_workers=None):
       """ Gets density stats at `phi_predict`. See `compute_stats` for output shapes. """
+      phi_predict = float(phi_predict)
+      x_plot = np.asarray(x_plot)
+      if x_plot.ndim != 1: 
+          raise ValueError(f"predict_density_stats expects a 1D array of x_plot values, got {x_plot.shape}.")
+      
       densities = self.predict_densities_at(phi_predict, x_plot, n_workers=n_workers)
       
       return ECEnsemble.compute_stats(densities, axis=0)
@@ -180,6 +202,13 @@ class ECEnsemble:
       Computes density residual stats at `phi_predict`. See `compute_resid_stats` for output shapes.
       `x_plot` should be the same `x_plot` that `reference_density` is computed on.
       """
+      phi_predict = float(phi_predict)
+      x_plot = np.asarray(x_plot)
+      reference_density = np.asarray(reference_density)
+      if x_plot.ndim != 1 or reference_density.ndim != 1 or len(x_plot) != len(reference_data): 
+          raise ValueError(f"predict_density_stats expects a 1D array of x plot values and a 1D array of "
+                           f"reference density values of the same length, got {x_plot.shape} vs {reference_density.shape}.")
+      
       densities = self.predict_densities_at(phi_predict, x_plot, n_workers=n_workers)
       return ECEnsemble.compute_resid_stats(reference_density, densities, axis=0)
 
@@ -213,13 +242,21 @@ class ECEnsemble:
     err95: np.array([np.ndarray, np.ndarray])
         The minus and plus 95%-percentile error bands of the residual data set.
     """
+    reference = np.asarray(reference)
+    data = np.asarray(data)
+
+    if np.any(reference.imag == 0):
+        raise ValueError(
+            "Reference has zero imaginary part. Im-relative-residual is undefined "
+            "for a purely real reference. Use Re-only stats instead."
+        )
     diff = data - reference
     resids = diff.real/reference.real + 1j*diff.imag/reference.imag
     return ECEnsemble.compute_stats(resids, axis=axis)
     
       
   @staticmethod
-  def compute_stats(data: np.ndarray, axis: int | None=None):
+  def compute_stats(data: np.ndarray, axis: int=0):
     """
     Computes the median, 68%-percentile error bands, and 95%-percentile error bands for data. Assumes the 
     data is given as an 1D array of complex numbers or some ndarray of complex numbers.
@@ -244,6 +281,8 @@ class ECEnsemble:
         The minus and plus 95%-percentile error bands. err95[0] corresponds to the minus; err95[1] corresponds to the plus.
         Same shape logic as for median.
     """
+    data = np.asarray(data)
+      
     median = np.median(data.real, axis=axis) + np.median(data.imag, axis=axis)*1j
     err68 = ECEnsemble.compute_percentile_error_bands(data, 68.2, axis=axis)
     err95 = ECEnsemble.compute_percentile_error_bands(data, 95.4, axis=axis)
@@ -271,6 +310,8 @@ class ECEnsemble:
         Same shape logic as discussed in `compute_stats`.
     """
     # compute median (technically un-needed if we compute it before, but quick enough that it doesn't matter
+    data = np.asarray(data)
+      
     median = np.median(data.real, axis=axis) + np.median(data.imag, axis=axis)*1j
     err_p = (np.percentile(data.real, 50.+percentile/2, axis=axis) +
            np.percentile(data.imag, 50.+percentile/2, axis=axis)*1j) - median

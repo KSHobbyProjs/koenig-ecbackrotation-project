@@ -1,0 +1,32 @@
+% AMS math packages
+\usepackage{amsmath}     % align, gather, multiline, etc.  
+\usepackage{amssymb}     % extra symbols: \mathbb, \mathfrak, \exists, etc.
+\usepackage{amsthm}      % theorem, definition environments
+
+% better math fonts and formatting
+\usepackage{bm}          % bold math symbols: \bm{p} for bold p
+\usepackage{mathtools}   % extensions to amsmath; e.g., \coloneqq, \DeclarePairedDelimiter
+
+% bra-ket formalism
+\usepackage{braket}      % \bra{}, \ket{}, \braket{}
+
+% geometry and formatting
+% the documentclass tag in main.tex handles most of this for us
+\usepackage{cleveref} % \cref{} instead of \ref{} (better references)
+\usepackage{graphicx}   % For figures
+
+% ---------------------------------------------------------------------------------
+% custom theorem and command environments
+% --------------------------------------------------------------------------------
+
+% theorem environments
+\newtheorem{theorem}{Theorem}[section]
+
+% custom commands
+\newcommand\be{\begin{equation}} % start equation env 
+\newcommand\ee{\end{equation}}   % end equation env
+
+\newcommand\bea{\begin{equation*}} % start equation* env
+\newcommand\eea{\end{equation*}}   % end equation* env
+
+\newcommand{\vecop}[1]{\hat{\mathbf{#1}}}
