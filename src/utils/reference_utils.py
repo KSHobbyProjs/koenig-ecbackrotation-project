@@ -1,7 +1,7 @@
 """
 reference_utils.py
 
-A few functions to help approximate the exact values. 
+A few functions to help approximate the exact values of observables.
 """
 import numpy as np
 

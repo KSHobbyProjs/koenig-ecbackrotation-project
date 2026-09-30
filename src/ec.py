@@ -259,57 +259,6 @@ class ECSystem:
       energy_idx = np.nanargmin(np.abs(self.resonance_energy - eigvals))
       DVRstate = self.reconstruct_DVRstate_from_ECState(eigvecs[:, energy_idx])
       return eigvals[energy_idx], DVRstate
-  
-  # =================================================================================================================
-  #                                   CONVENIENCE PREDICTION METHODS 
-  # ===================================================================================================================
-  def predict_energies_rrs(self, rotation_angles_predict: np.ndarray, rotate_rr: bool=True):
-    """
-    Computes <r^2> and E for resonance for rotation angles in rotation_angles_predict 
-
-    Parameters
-    ----------
-    rotation_angles_predict : ndarray or array-like
-        Array of rotation angles to compute <r^2> and E at.
-    rotate_rr (optional): bool, default False
-        Decided if r^2 operator should be complex-rotated (True) or not (False).
-        
-    Returns
-    -------
-    rrs : ndarray
-        Array of <r^2> data.
-    energies : ndarray
-        Array of energy data.
-
-    Notes
-    -----
-    EC can't uniquely determine which eigvec corresponds to the resonance as we adjust phi,
-    so we forcefully find it by choosing the energy that best matches the known resonance freq.
-    """
-    rotation_angles_predict = np.asarray(rotation_angles_predict)
-    if rotation_angles_predict.ndim != 1:
-      raise ValueError(f"predict_energies_rrs expects a 1D array of rotation angles, got {rotation_angles_predict.shape}.")
-          
-    energies, rrs = [], []
-    for phi in rotation_angles_predict:
-      phi = complex(phi)
-      energy, eigstateDVR = self.predict_DVR_state_at(phi)
-      energies.append(energy)
-        
-      rr = self.system.compute_rr(eigstateDVR, rotate_rr=rotate_rr, regulator=False)
-      rrs.append(rr)
-    return energies, rrs
-
-  def predict_density_at(self, rotation_angle_predict: complex, x_plot: np.ndarray | None=None):
-    """
-    Returns
-    -------
-    density: np.ndarray
-        The density as a function of position. Shape (len(x_plot)).
-    """
-    rotation_angle_predict = complex(rotation_angle_predict)
-    dvr_state = self.predict_DVR_state_at(rotation_angle_predict)[1]
-    return self.system.compute_density(dvr_state, x_plot)
 
   # ================================================================================================================
   #                                        UTILITY METHODS

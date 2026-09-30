@@ -8,12 +8,10 @@ import numpy as np
 
 from ..dvr import DVR
 from ..ec import ECSystem
-from .sweep_utils import ScanPoint
 from typing import Callable
 import copy
 
 from dataclasses import dataclass
-
 
 
 # ===============================================================================================================
@@ -31,7 +29,7 @@ class PredictPoint:
     predicted_resonance_state: np.ndarray
 
     phi_predict: complex
-    resonance_ec: ECSystem
+    resonance_dvr: DVR
 
     bound_dvr: DVR | None = None
     bound_energy: complex | None = None
@@ -43,26 +41,25 @@ def predict_energy(pt: PredictPoint) -> complex:
 
 def predict_rr(pt: PredictPoint, rotate_rr: bool=True) -> complex:
     """ Predicted observable: predicted (r^2). """
-    resonance_dvr = pt.resonance_ec.system
-    resonance_dvr.reset_rotation_angle(pt.phi_predict)
-    return resonance_dvr.compute_rr(pt.predicted_resonance_state, rotate_rr=rotate_rr)
+    pt.resonance_dvr.reset_rotation_angle(pt.phi_predict)
+    return pt.resonance_dvr.compute_rr(pt.predicted_resonance_state, rotate_rr=rotate_rr)
 
 def predict_telem(pt: PredictPoint, operator: str="E1", phase_fixed: bool=True) -> complex:
     """ 
     Predicted observable: predicted (psi_res | operator | psi_bound). As in `obs_telem`, this
     function defaults to phase-fixing the element such that the real component is positive.
     """
-    resonance_dvr = pt.resonance_ec.system
-    L = resonance_dvr.L
+    pt.resonance_dvr.reset_rotation_angle(pt.phi_predict)
+    L = pt.resonance_dvr.L
     if pt.bound_dvr is None:
         raise ValueError(
             "predict_telem needs a bound state -- pass bound_dvr and "
             "bound_energy to quick_predict_resids."
         )
-    if (not np.isclose(pt.bound_dvr.L, L)) or (resonance_dvr.n != pt.bound_dvr.n):
+    if (not np.isclose(pt.bound_dvr.L, L)) or (pt.resonance_dvr.n != pt.bound_dvr.n):
         raise ValueError(
             f"Bound state DVR and resonance DVR need to have the same system length and same number of mesh points. "
-            f"Got ({pt.bound_dvr.L:.5f}, {pt.bound_dvr.n}) vs ({L:.5f}, {resonance_dvr.n})."
+            f"Got ({pt.bound_dvr.L:.5f}, {pt.bound_dvr.n}) vs ({L:.5f}, {pt.resonance_dvr.n})."
         )
     telem = DVR.compute_transition_mat_element(
         L,
@@ -75,40 +72,17 @@ def predict_telem(pt: PredictPoint, operator: str="E1", phase_fixed: bool=True) 
         telem *= np.sign(np.real(telem))
     return telem
 
+def predict_density(pt: PredictPoint, x_plot: np.ndarray | None=None) -> np.ndarray:
+    pt.resonance_dvr.reset_rotation_angle(pt.phi_predict)
+    return pt.resonance_dvr.compute_density(pt.predicted_resonance_state, x_plot)
+
 # ====================================================================================================================
 #                                               PREDICTION + STATS ENGINES
 # =====================================================================================================================
-def residual(reference: complex, prediction: complex) -> complex:
-    """ Compute the complex-component-wise residual between `prediction` and `reference`. """
-    diff = prediction - reference
-    return np.abs(diff.real) + 1j*np.abs(diff.imag)
-    
-def relative_residual(reference: complex, prediction: complex, tol: float=1e-9) -> complex:
-    """ Compute the complex-component-wise relative residual between `prediction` and `reference`. """
-    diff = prediction - reference
-    if (np.abs(reference.real) < tol) or (np.abs(reference.imag) < tol):
-        raise ValueError(
-            f"Reference can't be zero in the real or imaginary component for relative residual. "
-            f"Got a real or imaginary component of 0 within tolerance {tol:e}. Use `_residual` "
-            f"instead."
-        )
-    return np.abs(diff.real) / reference.real + 1j*np.abs(diff.imag) / reference.imag
-
-def quick_residuals(
-    reference: dict[str, complex],
-    prediction: dict[str, complex],
-    relative: bool=False
-) -> dict[str, complex]:
-    resids = {}
-    for name, val in prediction.items():
-        r = reference[name]
-        resids[name] = relative_residual(r, val) if relative else residual(r, val)
-    return resids
-
 def quick_predict(
     resonance_ec: ECSystem,
     phi_predict: complex,
-    observables: dict[str, Callable[[ScanPoint], complex]],
+    observables: dict[str, Callable[[PredictPoint], complex]],
     resonance_dvr: DVR,
     resonance_energy: complex,
     bound_dvr: DVR | None=None,
@@ -117,7 +91,6 @@ def quick_predict(
     """
     Quickly predict many observables using EC. Returns dictionary of results
     where the keys share the same names as those in `observables` and the val is the computed observable.
-    Also includes a key "bound_energy" which includes the bound energy at `phi_predict`.
     """
     phi_predict = complex(phi_predict)
     resonance_energy = complex(resonance_energy)
@@ -132,10 +105,9 @@ def quick_predict(
         bound_energy = complex(bound_energy)
         benergy, bstate = bound_dvr.closest_to_resonance(bound_energy)
         benergy, bstate = benergy[0], bstate[:, 0]
-        results["bound_energy"] = benergy
 
     pt = PredictPoint(
-        predicted_resonance_energy, predicted_resonance_state, phi_predict, copy.copy(resonance_ec),
+        predicted_resonance_energy, predicted_resonance_state, phi_predict, copy.copy(resonance_dvr),
         bound_dvr=copy.copy(bound_dvr) if bound_dvr is not None else None, 
         bound_energy=benergy, bound_state=bstate
     )
@@ -143,28 +115,37 @@ def quick_predict(
         results[name] = fn(pt)
     return results
 
-def get_reference(data: np.ndarray, tol=1e-4):
-    """
-    A helper that returns the median of the data set if the std is below a tolerance.
-    This function is meant to be used to get the "real resonance energy" and real values
-    of the observables by averaging over the training data set.
-    """
-    if (np.std(np.real(data)) < tol) and (np.std(np.imag(data)) < tol):
-        return np.median(data)
-    else: 
-        raise RuntimeError(f"Standard deviation of data not smaller than tolerance {tol:e}. "
-                           f"Got {np.std(np.real(data))} +- i{np.std(np.imag(data))}"
-                          )
-def get_phi_bounds(resonance_energy: complex, phi_max: float=np.pi/4) -> tuple[float, float]:
-    """
-    Theoretical (phi_min, phi_max) window for a resonance under uniform complex scaling.
-    phi_min = |arg(E_res)| / 2 (rotation needed to expose the pole);
-    phi_max defaults to pi/4, correct for any Gaussian-type potential family
-    (V(r) ~ exp(-r^2 e^{2i theta}) needs theta < pi/4 to stay integrable).
-    For other potential families, phi_max needs to be supplied explicitly.
 
-    We allow the rotation angle to run complex, but this returns the Re(phi) bounds, so
-    they remain floats.
+# =======================================================================================================
+#                                            HELPERS
+# =======================================================================================================
+def residual(reference: complex, prediction: complex | np.ndarray) -> complex | np.ndarray:
+    """ 
+    Compute the complex-component-wise residual between `prediction` and `reference`. 
+    If `prediction` is an array, the reference will be broadcast against the entire array,
+    and the result will be the residual at each element of the array.
     """
-    resonance_energy = complex(resonance_energy)
-    return abs(np.angle(resonance_energy)) / 2, float(phi_max)
+    diff = prediction - reference
+    return np.abs(np.real(diff)) + 1j*np.abs(np.imag(diff))
+    
+def relative_residual(reference: complex, prediction: complex | np.ndarray, tol: float=1e-9) -> complex:
+    """ Compute the complex-component-wise relative residual between `prediction` and `reference`. """
+    diff = prediction - reference
+    if (np.abs(reference.real) < tol) or (np.abs(reference.imag) < tol):
+        raise ValueError(
+            f"Reference can't be zero in the real or imaginary component for relative residual. "
+            f"Got a real or imaginary component of 0 within tolerance {tol:e}. Use `_residual` "
+            f"instead."
+        )
+    return np.abs(np.real(diff)) / reference.real + 1j*np.abs(np.imag(diff)) / reference.imag
+
+def quick_residuals(
+    reference: dict[str, complex],
+    prediction: dict[str, complex],
+    relative: bool=False
+) -> dict[str, complex]:
+    resids = {}
+    for name, val in prediction.items():
+        r = reference[name]
+        resids[name] = relative_residual(r, val) if relative else residual(r, val)
+    return resids

@@ -9,6 +9,7 @@ from typing import Callable
 from .sweep_utils import ScanPoint
 from ..dvr import DVR
 from ..ec import ECSystem
+from ..ecensemble import StatPoint
 
 import matplotlib.pyplot as plt
 
@@ -29,10 +30,26 @@ def print_training_data(results: dict[str, np.ndarray]):
 def print_quick_predict(results: dict[str, complex]):
     for name, result in results.items():
         print(f"{name}:{result.real:.5f} + i{result.imag:.5f}")
+
+def print_quick_predict_ensemblestats(results: dict[str, StatPoint]):
+    for name, result in results.items():
+        mr, mi = np.real(result.med), np.imag(result.med)
+        err68r, err68i = np.real(result.err68), np.imag(result.err68)
+        err95r, err95i = np.real(result.err95), np.imag(result.err95)
+        print(
+            f"{name}: "
+            f"Median: {mr:.5f} + i{mi:.5f}. "
+            f"68%: [{mr-err68r[0]:.5f}, {mr+err68r[1]:.5f}] + i[{mi-err68i[0]:.5f}, {mi+err68i[1]:.5f}]. "
+            f"95%: [{mr-err95r[0]:.5f}, {mr+err95r[1]:.5f}] + i[{mi-err95i[0]:.5f}, {mi+err95i[1]:.5f}]."
+        )
     
 #----------------------------------------------------------------------------------------------------------------
 # Plotting utils
-# ---------------------------------------------------------------------------------------------------------------     
+# ---------------------------------------------------------------------------------------------------------------    
+def get_plots_path():
+    project_root = Path(__file__).resolve().parents[1]
+    return project_root / "plots"
+    
 def plot_stats(fig, axs, xs, med, err68, err95, cutoff: int=0, color='red'):
     """ 
     Plots EC ensemble stats with error bands. Designed to plot data and error bars as number of training
@@ -134,7 +151,3 @@ def plot_data_over_phi_grid(
         ax.set_ylabel(r"Im($\phi$)")
     plt.tight_layout()
     return fig, (axr, axi)
-
-def get_plots_path():
-    project_root = Path(__file__).resolve().parents[1]
-    return project_root / "plots"

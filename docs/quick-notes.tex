@@ -11,4 +11,38 @@
     The ABC theorem applies specifically to a self-adjoint Hamiltonian on Euclidean configuration space (an operator $H=-\Delta + V(x)$ on $L^2(\mathbb{R}^n)$), with $V$ satisfying an appropriate dilation-analyticity condition. The following is a paper wherein Kalvin extends this theorem to a more general setting. It's terse, and I don't think it has a use for us, but I put it here in case.
     \begin{verbatim} https://arxiv.org/abs/1003.2538 \end{verbatim}
 
+	\subsection*{Issue with Complex $\phi$}
+	$$
+		u_{k, l}(r) \rightarrow \hat{h}^+_l(kr)\sim e^{ikr}.
+	$$
+	For $k = k_r - i\gamma$ ($k_r, \gamma>0$),
+	$$
+		u_{k, l}(r) \rightarrow e^{ik_rr}e^{\gamma r}.
+	$$
+	Take $r\rightarrow re^{\theta}$:
+	$$
+		u_{k, l}(re^{\theta}) \rightarrow e^{ik_rre^\theta}e^{\gamma re^\theta}.
+	$$
+	Continuing to $\theta=\theta_r + i\theta_i$:
+	$$
+		u_{k, l}(re^{\theta}) \rightarrow e^{ik_r r e^{\theta_r}e^{i\theta_i}}e^{\gamma r e^{\theta_r}e^{i\theta_i}}
+	$$
+	$$
+		u_{k, l}(re^\theta) \rightarrow e^{i\tilde{\theta}k_rr(\cos\theta_i+i\sin\theta_i)}e^{\gamma\tilde{\theta}r(\cos\theta_i+i\sin\theta_i)},
+	$$
+	where $\tilde{\theta} \rightarrow e^{\theta_r}$. 
+	$$
+		u_{k, l}(re^{\theta}) = e^{i\tilde{\theta}r(k_r\cos\theta_i+\gamma\sin\theta_i)}e^{\tilde{\theta}r(\gamma\cos\theta_i-k_r\sin\theta_i)}.
+	$$
+	This converges as long as $\gamma\cos\theta_i - k_r\sin\theta_i < 0\rightarrow \theta_i > |\arg(E)|/2$, as already established by the ABC theorem. We further require that $V(re^{\theta})$ remains well behaved. For a Gaussian $V(r) = V_0 \exp(-(r-r_0)^2/w^2)$. For simplicity, assume $V(r) = V_0 e^{-r^2/w^2}$. Then,
+	\begin{align*}
+		V(re^\theta) &= V_0 \exp (-r^2e^{2\theta}/w^2) = V_0\exp(-r^2e^{2\theta_r}e^{2i\theta_i}/w^2)\\
+		&=V_0\exp[-\tilde{\theta}^2r^2/w^2(\cos(2\theta_i)+i\sin(2\theta_i))] =V_0e^{-\tilde{\theta}^2r^2/w^2\cos(2\theta_i)}e^{-i\tilde{\theta}^2r^2/w^2\sin(2\theta_i)}.
+	\end{align*}
+	First, we see that when $\theta_i\ge \pi/4$, $-\tilde{\theta}^2r^2/w^2\cos(2\theta_i)>0$, so the potential diverges. Thus, we need $\theta_i < \pi/4$ to remain well-behaved. $|\arg(E)|/2< \theta_i< \pi/4$ [Gaussian]. Second, we see that the radial coordinate is stretched as $r\sim r\tilde{\theta}$. This has the following effect: the DVR mesh $(n, L)$ (where $n$ is the number of mesh points and $L$ is the system length) is fixed upon creation. When $\tilde{\theta}$ is small, we're effectively reduce our sampling from $r\in [0, L]$ to $r\in [0, L\tilde{\theta}<<L]$. We've refined our mesh width by a factor $\tilde{\theta}$, but we cut off information past $L\tilde{\theta}$. If the potential is still meaningful beyond that point, we'll pick up a domain truncation error (IR error). Further, if $\tilde{\theta}$ is very large, then we've effectively increased our sampling region from $r\in [0, L]$ to $r\in [0, L\tilde{\theta}>>L]$, but we've effectively coarsened our mesh. If the relevant scale for the potential is $l_\text{phys}$, and we effectively coarsen our mesh to $\Delta = \tilde{\theta}w>>w > l_\text{phys}$, then we're undersampling, and we can't represent the relevant physics (UV error).
+	
+	This is an issue for finding plateaus: scanning over a complex $\theta$ grid looking for a plateau in observables will be contaminated by whatever FV errors are accumulating underneath it. So, a real, physical plateau can look un-converged due strictly to FV effects, and a seemingly-converged plot might actually be physically unstable. I'd have to adjust the mesh width every time I adjusted $\theta_r$ if I wanted to account for this exactly (similarly to how I do when scanning over $L$), but I can't train EC on training vectors coming from different DVR systems (unless FVEC?), so I have to pick a mesh width and stick with it. I can scan for a plateau in the $\theta$ grid, then nudge $n/L$ a little (make my mesh finer) to see if it remains converged at the most demanding point (near the edge). If it does, then it should be a sufficiently real plateau.
+	
+	\subsubsection*{Preliminary Results}
+	For a few systems, (system 1, system 9, and system 8 are the ones I've checked so far), training on complex theta seems to improve performance (the residuals of all observables are smaller, sometimes significantly so, when trained on complex $\theta$ than when trained on pure real $\theta$ for the same number of training points). I want to test how robust this is. Setting up an EC ensemble and seeing how the error converges as I increase total number of training points vs how the error converges as I increase number of training points only over the real $\theta$. 
 \end{document}

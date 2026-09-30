@@ -104,7 +104,8 @@ def linesweep_phi(
     Returns
     -------
     dict[str, np.ndarray]:
-        Dictionary of results. Keys match those of `observables`. Array has shape (
+        Dictionary of results. Keys match those of `observables`. Also includes a key "bound_energies"
+        that tracks the bound energies (if bound_dvr is supplied) over the sweep.
     """    
     resonance_energy = complex(resonance_energy)
     phis = np.asarray(phis)
@@ -168,7 +169,8 @@ def gridsweep_phi(
     """
     Scans phi, evaluating every observable in `observables` at each scan point. Also includes a "bound_energy"
     key that tracks the bound state energy over every phi. `phis_real` and `phis_imag` should both be completely real 1D arrays. The function will scan over all complex phi combinations of phis_real and phis_imag. I.e., scans over each phi in phis[i,j] = phis_real[i] + 1j*phis_imag[j]. The vals of the returned dictionary have shape (len(phis_real), len(phis_imag)) such that 
-    dict["name"][i, j] corresponds to the "name" observable at phi = phi_real[i] + 1j*phi_imag[j].
+    dict["name"][i, j] corresponds to the "name" observable at phi = phi_real[i] + 1j*phi_imag[j]. Also includes a key "bound_energies"
+        that tracks the bound energies (if bound_dvr is supplied) over the sweep.
     
     Returns
     -------
@@ -241,7 +243,7 @@ def linesweep_L(
     """
     Scans L while holding the DVR mesh spacing dr = L/(n+1) fixed (n is recomputed at each L).
     One diagonalization per L, every observable evaluated against it. Also includes a "bound_energies"
-    key that tracks the bound state energy over every L in `Ls`.
+    key that tracks the bound state energy over every L in `Ls`. 
     """
     rotation_angle = complex(rotation_angle)
     resonance_energy = complex(resonance_energy)
