@@ -18,6 +18,9 @@ from dataclasses import dataclass
 # ========================================================================================
 #                           ENSEMBLE POINT AND OBSERVABLES
 # =========================================================================================
+# -------------------------------------------------------------------------------------------
+# One ensemble prediction point and observables that can be read off it
+# ------------------------------------------------------------------------------------------
 @dataclass
 class EnsemblePoint:
     """
@@ -75,9 +78,10 @@ def ensemble_density(ep: EnsemblePoint, x_plot: np.ndarray | None=None) -> np.nd
         ep.resonance_dvr.compute_density(s, x_plot) for s in ep.predicted_resonance_states.T
     ]).T
     
-# -------------------------------------------------------------------------------------------
-# One ensemble prediction point and observables that can be read off it
-# ------------------------------------------------------------------------------------------
+# =====================================================================================================
+#                                            ENSEMBLE PREDICTION ENGINES
+# =====================================================================================================
+    
 def quick_predict_ensemble(
     ecensemble: ECEnsemble,
     phi_predict: complex,
@@ -86,7 +90,7 @@ def quick_predict_ensemble(
     resonance_energy: complex,
     bound_dvr: DVR | None=None,
     bound_energy: complex | None=None,
-) -> dict[str, StatPoint]:
+) -> dict[str, np.ndarray]:
     
     phi_predict=complex(phi_predict)
     resonance_energy = complex(resonance_energy)
@@ -121,7 +125,7 @@ def quick_stats(
     axis: dict[str, int] | int=0
 ) -> dict[str, StatPoint]:
     """
-    Computes the med, err68, err95 of every observable in prediction. If a reference is given, the residual
+    Computes the med, err68, err95 of every observable in `prediction`. If a reference is given, the residual
     stats will be computed. If relative=True, the relative residual stats will be computed. axis determines 
     the axis along which the stats will be computed for each observable. Default is zero for all.
     """
@@ -141,5 +145,4 @@ def quick_stats(
             resids = residual(r, vals)
         stats[name] = ECEnsemble.compute_stats(resids, axes[name])
     return stats
-            
     

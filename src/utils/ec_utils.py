@@ -134,10 +134,10 @@ def relative_residual(reference: complex, prediction: complex | np.ndarray, tol:
     if (np.abs(reference.real) < tol) or (np.abs(reference.imag) < tol):
         raise ValueError(
             f"Reference can't be zero in the real or imaginary component for relative residual. "
-            f"Got a real or imaginary component of 0 within tolerance {tol:e}. Use `_residual` "
+            f"Got a real or imaginary component of 0 within tolerance {tol:e}. Use `residual` "
             f"instead."
         )
-    return np.abs(np.real(diff)) / reference.real + 1j*np.abs(np.imag(diff)) / reference.imag
+    return np.abs(np.real(diff) / reference.real) + 1j*np.abs(np.imag(diff) / reference.imag)
 
 def quick_residuals(
     reference: dict[str, complex],

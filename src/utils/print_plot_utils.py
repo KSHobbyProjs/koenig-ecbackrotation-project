@@ -5,20 +5,21 @@ utils.py
 import numpy as np
 from pathlib import Path
 
-from typing import Callable
+from typing import Callable, Sequence
+from dataclasses import dataclass
+
 from .sweep_utils import ScanPoint
 from ..dvr import DVR
 from ..ec import ECSystem
 from ..ecensemble import StatPoint
 
 import matplotlib.pyplot as plt
+import matplotlib
+import matplotlib.ticker as mticker
 
 # ===============================================================================================================
-#                                  PRINTING AND PLOTTING HELPERS
+#                                                      PRINTING
 # ===============================================================================================================
-# ---------------------------------------------------------------------------------------------------------------
-# Printing utils
-# ---------------------------------------------------------------------------------------------------------------  
 def print_training_data(results: dict[str, np.ndarray]):
     for name, result in results.items():
         print(
@@ -43,111 +44,191 @@ def print_quick_predict_ensemblestats(results: dict[str, StatPoint]):
             f"95%: [{mr-err95r[0]:.5f}, {mr+err95r[1]:.5f}] + i[{mi-err95i[0]:.5f}, {mi+err95i[1]:.5f}]."
         )
     
-#----------------------------------------------------------------------------------------------------------------
-# Plotting utils
-# ---------------------------------------------------------------------------------------------------------------    
+# ===============================================================================================================
+#                                                      PLOTTING
+# ===============================================================================================================
+@dataclass
+class PlotObject:
+    fig: matplotlib.figure.Figure
+    axs: matplotlib.axes.Axes | Sequence[matplotlib.axes.Axes]
+
+    def save(self, plots_folder, filename="", filetype="png", **kwargs):
+        self.fig.savefig(plots_folder / f"{filename}.{filetype}", **kwargs)
+
+    def show(self):
+        """ Show the figure. This is not needed in Jupyter as Jupyter naturally plots the figures """
+        self.fig.show()
+
+    def close(self):
+        plt.close(self.fig)
+
 def get_plots_path():
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     return project_root / "plots"
     
-def plot_stats(fig, axs, xs, med, err68, err95, cutoff: int=0, color='red'):
+def plot_observables(
+    xs: np.ndarray,
+    observables: dict[str, np.ndarray],
+    *,
+    xlabel: str="",
+    ylabels: dict[str, str] = {},
+    titles: dict[str, str] = {},
+    figsizes: dict[str, tuple[int, int]] | tuple[int, int]=(12, 6)
+) -> dict[str, PlotObject]:
+    
+    figsizes = figsizes if isinstance(figsizes, dict) else {name: figsizes for name in observables.keys()}
+
+    plots = {}
+    for name, vals in observables.items():
+        # get the ylabel and title if given, otherwise default to name of observable
+        ylabel = ylabels.get(name, name)
+        title = titles.get(name, name)
+        figsize = figsizes.get(name)
+        
+        fig, (axr, axi) = plt.subplots(1, 2, figsize=figsize)
+        # real plot
+        axr.plot(xs, np.real(vals))
+        axr.set_ylabel(fr"$\Re$ {ylabel}")
+        axr.set_xlabel(xlabel)
+        # imag plot
+        axi.plot(xs, np.imag(vals))
+        axi.set_ylabel(fr"$\Im$ {ylabel}")
+        axi.set_xlabel(xlabel)
+
+        fig.suptitle(title)
+        fig.tight_layout()
+
+        plots[name] = PlotObject(fig=fig, axs=(axr, axi))
+    return plots
+
+def plot_observables_over_phi_grid(
+    phis_real: np.ndarray,
+    phis_imag: np.ndarray,
+    observables: dict[str, np.ndarray],
+    *,
+    titles: dict[str, str] = {},
+    cmap: str='RdBu',
+    figsizes: dict[str, tuple[int, int]] | tuple[int, int]=(16, 8),
+) -> dict[str, PlotObject]:
+
+    figsizes = figsizes if isinstance(figsizes, dict) else {name: figsizes for name in observables.keys()}
+
+    plots = {}
+    for name, vals in observables.items():
+        title = titles.get(name, name)
+        figsize = figsizes.get(name)
+
+        zr, zi = np.real(vals), np.imag(vals)
+        xv, yv = np.meshgrid(phis_real, phis_imag, indexing='ij')
+    
+        fig, (axr, axi) = plt.subplots(1, 2, figsize=figsize)
+    
+        # real component
+        zr_min, zr_max = np.min(zr), np.max(zr)
+        cr = axr.pcolormesh(xv, yv, zr, cmap=cmap, vmin=zr_min, vmax=zr_max)
+        fig.colorbar(cr, ax=axr)
+        axr.set_title(fr"$\Re$ {title}")
+
+        # imag component
+        zi_min, zi_max = np.min(zi), np.max(zi)
+        ci = axi.pcolormesh(xv, yv, zi, cmap=cmap, vmin=zi_min, vmax=zi_max)
+        fig.colorbar(ci, ax=axi)
+        axi.set_title(fr"$\Im$ {title}")
+        
+        for ax in (axr, axi):
+            ax.axis([xv.min(), xv.max(), yv.min(), yv.max()])
+            ax.set_xlabel(r"$\Re\phi$")
+            ax.set_ylabel(r"$\Im\phi$")
+        
+        fig.tight_layout()
+
+        plots[name] = PlotObject(fig=fig, axs=(axr, axi))
+    return plots
+
+def plot_ensemble_stats(
+    xs: np.ndarray,
+    ensemble_stats: list[dict[str, StatPoint]],
+    references: dict[str, complex]={},
+    *,
+    xlabel: str="",
+    ylabels: dict[str, str] = {},
+    titles: dict[str, str] = {},
+    color: str='red',
+    figsizes: dict[str, tuple[int, int]] | tuple[int, int]=(12,6),
+    scale: str='linear',
+    cutoff: int=0
+) -> dict[str, PlotObject]:
     """ 
     Plots EC ensemble stats with error bands. Designed to plot data and error bars as number of training
-    points varies, but `xs`, `med`, `err68`, and `err95` can be anything.
+    points varies, but `xs` can be anything.
 
     Parameters
     ----------
-    fig: plt.fig 
-        the matplotlib figure.
-    axs: tuple[plt.ax, plt.ax]
-        Pair of matplotlib axes, one for the real component; one for the imaginary component.
     xs: np.ndarray
-        The x-axis data. Shape (len(xs),).
-    med: np.ndarray
-        The median of whatever data set as x varies. Shape (len(xs),).
-    err68: np.ndarray
-        The 68% percentile error bands corresponding to the data in `med`. Shape (len(xs), 2). err68[:, 0]
-        is the minimum for the error band as x varies, and err68[:, 1] is the maximum for the error band as 
-        x varies.
-    err95: np.ndarray
-        Exactly as `err68` except for the 95% percentile error bands.
+        The x data over which the stats were computed. Shape (len(xs),).
+    ensemble_results: list[dict[str, StatPoint]]
+        List of ensemble stats at each x in `xs`.
+    references: dict[str, complex] (optional)
+        Reference data for every observable. When given, adds a reference line to the plot.
     cutoff: int
-        Cuts off the first "cutoff" data points. For example, if cutoff=1, then only xs[1:], med[1:], etc. will be plotted. Default is no cutoff.
-    color: str
-        Color of the data. Default is red.
+        Cuts off the first "cutoff" data points. For example, if cutoff=1, then only xs[1:], med[1:], etc.
+        will be plotted. Default is no cutoff.
     """
-    ax1, ax2 = axs
-    xs, med, err68, err95 = xs[cutoff:], med[cutoff:], err68[cutoff:, :], err95[cutoff:, :]
-    
-    # real component 
-    ax1.scatter(xs, np.real(med), color=color, marker='x', label='Predict (median)')
-    ax1.errorbar(
-        xs, np.real(med),
-        yerr=np.real(err68.T),
-        fmt='none',
-        ecolor=color, 
-        elinewidth=2.0, 
-        alpha=1.0, 
-        label='Predict (68.2% int)'
-    )
-    ax1.errorbar(
-        xs, np.real(med),
-        yerr=np.real(err95.T),
-        fmt='none',
-        ecolor=color,
-        elinewidth=2.0, 
-        alpha=0.4, 
-        label='Predict (95.4% int)'
-    )
-    
-    # imag component
-    ax2.scatter(xs, np.imag(med), color=color, marker='x', label='Predict (median)')
-    ax2.errorbar(
-        xs, np.imag(med),
-        yerr=np.imag(err68.T),
-        fmt='none', 
-        ecolor=color, 
-        elinewidth=2.0, 
-        alpha=1.0, 
-        label='Predict (68.2% int)'
-    )
-    ax2.errorbar(
-        xs, np.imag(med),
-        yerr=np.imag(err95.T),
-        fmt='none', 
-        ecolor=color, 
-        elinewidth=2.0, 
-        alpha=0.4, 
-        label='Predict (95.4% int)'
-    )
+    xs = np.asarray(xs)[cutoff:]
+    figsizes = figsizes if isinstance(figsizes, dict) else {name: figsizes for name in ensemble_stats[0].keys()}
 
-def plot_data_over_phi_grid(
-    phis_real, phis_imag,
-    z,
-    title="",
-    cmap='RdBu',
-    figsize=(16,8),
-):
-    zr, zi = np.real(z), np.imag(z)
-    xv, yv = np.meshgrid(phis_real, phis_imag, indexing='ij')
-    
-    fig, (axr, axi) = plt.subplots(1, 2, figsize=figsize)
-    
-    # real component
-    zr_min, zr_max = np.min(zr), np.max(zr)
-    cr = axr.pcolormesh(xv, yv, zr, cmap=cmap, vmin=zr_min, vmax=zr_max)
+    # re-structure so that list[dict[str, StatPoint]] -> dict[str, list[list[complex], list[complex], list[complex]]]
+    # such that ensemble_stats[i]["observable_j"] -> result["observable_j"] = [med[i], err68[i], err95[i]]
+    stats = {}
+    for name in ensemble_stats[0]:
+        med, err68, err95 = [], [], []
+        for stat in ensemble_stats[cutoff:]:
+            med.append(stat[name].med)
+            err68.append(stat[name].err68)
+            err95.append(stat[name].err95)
+        stats[name] = (np.array(med), np.array(err68), np.array(err95))
 
-    # imag component
-    zi_min, zi_max = np.min(zi), np.max(zi)
-    ci = axi.pcolormesh(xv, yv, zi, cmap=cmap, vmin=zi_min, vmax=zi_max)
+    plots = {}
+    for name, vals in stats.items():
+        title = titles.get(name, name)
+        ylabel = ylabels.get(name, name)
+        exact = references.get(name)
+        figsize = figsizes.get(name)
+        
+        med, err68, err95 = vals
 
-    axr.set_title(f"Re({title})")
-    axi.set_title(f"Im({title})")
-    fig.colorbar(cr, ax=axr)
-    fig.colorbar(ci, ax=axi)
-    for ax in (axr, axi):
-        ax.axis([xv.min(), xv.max(), yv.min(), yv.max()])
-        ax.set_xlabel(r"Re($\phi$)")
-        ax.set_ylabel(r"Im($\phi$)")
-    plt.tight_layout()
-    return fig, (axr, axi)
+        fig, (axr, axi) = plt.subplots(1, 2, figsize=figsize)
+        fig.suptitle(title)
+        # real component 
+        axr.scatter(xs, np.real(med), color=color, marker='x', label='Predict (median)')
+        axr.errorbar(xs, np.real(med), yerr=np.real(err68.T), fmt='none', ecolor=color, 
+            elinewidth=2.0, alpha=1.0, label='Predict (68.2% int)')
+        axr.errorbar(xs, np.real(med), yerr=np.real(err95.T), fmt='none', ecolor=color,
+            elinewidth=2.0, alpha=0.4, label='Predict (95.4% int)')
+        axr.set_ylabel(rf"$\Re$ {ylabel}")
+        
+        # imag component
+        axi.scatter(xs, np.imag(med), color=color, marker='x', label='Predict (median)')
+        axi.errorbar(xs, np.imag(med), yerr=np.imag(err68.T), fmt='none', ecolor=color, 
+            elinewidth=2.0, alpha=1.0, label='Predict (68.2% int)')
+        axi.errorbar(xs, np.imag(med), yerr=np.imag(err95.T), fmt='none', ecolor=color, 
+            elinewidth=2.0, alpha=0.4, label='Predict (95.4% int)')
+        axi.set_xlabel(xlabel)
+        axi.set_ylabel(rf"$\Im$ {ylabel}")
+
+        # if given a reference, plot it as a line
+        if exact is not None:
+            axr.axhline(y=np.real(exact), color='black', linewidth=1.0, linestyle='-', label='Exact')
+            axi.axhline(y=np.imag(exact), color='black', linewidth=1.0, linestyle='-', label='Exact')
+
+        for ax in (axr, axi):
+            ax.set_xlabel(xlabel)
+            ax.set_yscale(scale)
+
+        # set legend
+        handles, labels = axr.get_legend_handles_labels()
+        fig.legend(handles, labels, loc='center left', bbox_to_anchor=(1.01, 0.5), framealpha=0.5)
+        fig.tight_layout()
+
+        plots[name] = PlotObject(fig=fig, axs=(axr, axi))
+    return plots
